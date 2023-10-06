@@ -6,13 +6,15 @@ import { GrNotification } from "react-icons/gr";
 import { BsBookmark } from "react-icons/bs";
 import { HiOutlineUser } from "react-icons/hi";
 import { CiCircleMore } from "react-icons/ci";
-import { CredentialResponse, GoogleLogin } from '@react-oauth/google'
-import FeedCard from '@/components/FeedCard'
+import { CredentialResponse, GoogleLogin } from "@react-oauth/google";
+import FeedCard from "@/components/FeedCard";
 
 import React, { useCallback } from "react";
 import toast from "react-hot-toast";
 import { graphqlClient } from "@/clients/api";
 import { verifyUserGoogleTokenQuery } from "@/graphql/queries/user";
+import { useCurrentUser } from "@/pages/hooks/user";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface XSiderbarButton {
   title: string;
@@ -55,23 +57,36 @@ const SidbarMenuItems: XSiderbarButton[] = [
 ];
 
 export default function Home() {
-  const handleLoginWithGoogle = useCallback(async (cred: CredentialResponse) => {
-    const googleToken = cred.credential
-    if (!googleToken) return toast.error(`Google token not found`);
+  const { user } = useCurrentUser();
+  const queryClient = useQueryClient();
 
-    const { verifyGoogleToken } = await graphqlClient.request(verifyUserGoogleTokenQuery, { token: googleToken });
+  console.log(user);
 
-    toast.success("Verified Sucess!")
+  const handleLoginWithGoogle = useCallback(
+    async (cred: CredentialResponse) => {
+      const googleToken = cred.credential;
+      if (!googleToken) return toast.error(`Google token not found`);
 
-    if (verifyGoogleToken) {
-      window.localStorage.setItem('twitter_token', verifyGoogleToken)
-    }
-    console.log(verifyGoogleToken)
-  }, [])
+      const { verifyGoogleToken } = await graphqlClient.request(
+        verifyUserGoogleTokenQuery,
+        { token: googleToken }
+      );
+
+      toast.success("Verified Sucess!");
+
+      if (verifyGoogleToken) {
+        window.localStorage.setItem("twitter_token", verifyGoogleToken);
+      }
+
+      await queryClient.invalidateQueries(["current-user"]);
+      console.log(verifyGoogleToken);
+    },
+    [queryClient]
+  );
   return (
     <div>
       <div className="grid grid-cols-12 h-screen w-screen px-56 bg-white">
-        <div className="col-span-3 pt-1 px-10 ml-27">
+        <div className="col-span-3 pt-1 px-10 ml-27 relative">
           <div className="text-3xl h-fit w-fit  hover:bg-[#E7E7E8] rounded-full p-2 cursor-pointer transition-all">
             <FaXTwitter />
           </div>
@@ -82,7 +97,8 @@ export default function Home() {
                   className="flex justify-start items-centre gap-4 hover:bg-[#E7E7E8] rounded-full px-4 py-2 w-fit cursor-pointer mt-2 "
                   key={item.title}
                 >
-                  <span className="text-2xl">{item.icon}</span> <span> {item.title}</span>
+                  <span className="text-2xl">{item.icon}</span>{" "}
+                  <span> {item.title}</span>
                 </li>
               ))}
             </ul>
@@ -92,6 +108,20 @@ export default function Home() {
               </button>
             </div>
           </div>
+          {user && <div className="absolute bottom-5 flex gap-2 items-center bg-slate-400 px-3 py-2 rounded-xl">
+            {user && user.profileImageURL && (
+              <Image className="rounded-full"
+                src={user?.profileImageURL}
+                alt="user-Image"
+                height={50}
+                width={50}
+              />
+            )}
+            <div>
+              <h3 className="text-xl">{user.firstName}</h3>
+              <h3 className="text-xl">{user.lastName}</h3>
+            </div>
+          </div>}
         </div>
         <div className="col-span-6 border-r-[1px] border-l-[1px] h-screen overflow-scroll">
           <FeedCard />
@@ -105,10 +135,12 @@ export default function Home() {
           <FeedCard />
         </div>
         <div className="col-span-3">
-          <div className="p-5 bg-[#E7E7E8]">
-            <h1 className="my-2 text-2xl"> New to X-twitter?</h1>
-            <GoogleLogin onSuccess={handleLoginWithGoogle} />
-          </div>
+          {!user && (
+            <div className="p-5 bg-[#E7E7E8]">
+              <h1 className="my-2 text-2xl"> New to X-twitter?</h1>
+              <GoogleLogin onSuccess={handleLoginWithGoogle} />
+            </div>
+          )}
         </div>
       </div>
     </div>
