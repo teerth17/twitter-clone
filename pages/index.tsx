@@ -4,17 +4,19 @@ import { RiHome7Fill } from "react-icons/ri";
 import { BiSearch, BiEnvelope } from "react-icons/bi";
 import { GrNotification } from "react-icons/gr";
 import { BsBookmark } from "react-icons/bs";
-import { HiOutlineUser } from "react-icons/hi";
+import { HiOutlinePhotograph, HiOutlineUser } from "react-icons/hi";
 import { CiCircleMore } from "react-icons/ci";
 import { CredentialResponse, GoogleLogin } from "@react-oauth/google";
 import FeedCard from "@/components/FeedCard";
 
-import React, { useCallback } from "react";
+import React, { use, useCallback, useState } from "react";
 import toast from "react-hot-toast";
 import { graphqlClient } from "@/clients/api";
 import { verifyUserGoogleTokenQuery } from "@/graphql/queries/user";
 import { useCurrentUser } from "@/pages/hooks/user";
 import { useQueryClient } from "@tanstack/react-query";
+import { useCreateTweet, useGetAllTweets } from "./hooks/tweet";
+import { Tweet } from "@/gql/graphql";
 
 interface XSiderbarButton {
   title: string;
@@ -59,8 +61,19 @@ const SidbarMenuItems: XSiderbarButton[] = [
 export default function Home() {
   const { user } = useCurrentUser();
   const queryClient = useQueryClient();
+  const { tweets = [] } = useGetAllTweets();
+  const { mutate } = useCreateTweet();
+  console.log(tweets)
 
-  console.log(user);
+  const [content, setContent] = useState('');
+
+  const handleSelectedImage = useCallback(() => {
+    const input = document.createElement('input')
+    input.setAttribute('type', 'file')
+    input.setAttribute('accept', 'image/*')
+    input.click();
+
+  }, [])
 
   const handleLoginWithGoogle = useCallback(
     async (cred: CredentialResponse) => {
@@ -83,6 +96,13 @@ export default function Home() {
     },
     [queryClient]
   );
+
+  const handleCreateTweet = useCallback(() => {
+    mutate({
+      content,
+    })
+  }, [mutate, content])
+
   return (
     <div>
       <div className="grid grid-cols-12 h-screen w-screen px-56 bg-white">
@@ -108,31 +128,57 @@ export default function Home() {
               </button>
             </div>
           </div>
-          {user && <div className="absolute bottom-5 flex gap-2 items-center bg-slate-400 px-3 py-2 rounded-xl">
-            {user && user.profileImageURL && (
-              <Image className="rounded-full"
-                src={user?.profileImageURL}
-                alt="user-Image"
-                height={50}
-                width={50}
-              />
-            )}
-            <div>
-              <h3 className="text-xl">{user.firstName}</h3>
-              <h3 className="text-xl">{user.lastName}</h3>
+          {user && (
+            <div className="absolute bottom-5 flex gap-2 items-center bg-slate-400 px-3 py-2 rounded-xl">
+              {user && user.profileImageURL && (
+                <Image
+                  className="rounded-full"
+                  src={user?.profileImageURL}
+                  alt="user-Image"
+                  height={50}
+                  width={50}
+                />
+              )}
+              <div>
+                <h3 className="text-xl">{user.firstName}</h3>
+                <h3 className="text-xl">{user.lastName}</h3>
+              </div>
             </div>
-          </div>}
+          )}
         </div>
         <div className="col-span-6 border-r-[1px] border-l-[1px] h-screen overflow-scroll">
-          <FeedCard />
-          <FeedCard />
-          <FeedCard />
-          <FeedCard />
-          <FeedCard />
-          <FeedCard />
-          <FeedCard />
-          <FeedCard />
-          <FeedCard />
+          <div>
+            <div className="border border-l-0 border-r-0 border-b-0 p-4 hover:bg-[#E7E7E8] transition-all cursor-pointer ">
+              <div className="grid grid-cols-12 gap-2">
+                <div className="col-span-1 ">
+                  {user?.profileImageURL && <Image
+                    className="rounded-full"
+                    src={user?.profileImageURL}
+                    alt="User Image"
+                    height={50}
+                    width={50}
+                  />}
+                </div>
+                <div className="col-span-11 border">
+                  <textarea
+                    value={content}
+                    onChange={e => setContent(e.target.value)}
+                    className=" w-full bg-transparent text-xl p-2 border-b border-slate-700" placeholder="What's happening?" rows={3}></textarea>
+                  <div className="mt-2 flex justify-between items-center" >
+                    <HiOutlinePhotograph onClick={handleSelectedImage} className="text-xl" />
+                    <button onClick={handleCreateTweet} className="bg-[#1A8CD8] text-sm font-semibold py-1 px-4 rounded-full">
+                      Post
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          {
+            tweets?.map((tweet) =>
+              tweet ? <FeedCard key={tweet?.id} data={tweet as Tweet} /> : null
+
+            )}
         </div>
         <div className="col-span-3">
           {!user && (
